@@ -219,7 +219,7 @@ class MainActivity : ComponentActivity() {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             OutlinedTextField(url, { url = it }, label = { Text("URL JSON (tunnel)") }, singleLine = true)
                             OutlinedTextField(token, { token = it }, label = { Text("Token") }, singleLine = true)
-                            OutlinedTextField(interval, { interval = it }, label = { Text("Refresh detik (10-900)") }, singleLine = true)
+                            OutlinedTextField(interval, { interval = it }, label = { Text("Refresh detik (10-60)") }, singleLine = true)
                             Button(onClick = {
                                 Prefs.saveAdv(ctx, url, token, interval)
                             }) { Text("Simpan") }

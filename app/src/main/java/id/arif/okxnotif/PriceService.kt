@@ -122,10 +122,23 @@ class PriceService : Service() {
         return title to text
     }
 
+    private fun webUrl(): String {
+        val root = Prefs.getUrl(this).trim().trimEnd('/')
+            .removeSuffix("/screening.json").trimEnd('/')
+        return root
+    }
+
     private fun build(title: String, text: String): Notification {
-        val open = PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val root = webUrl()
+        val open = if (root.isNotBlank()) {
+            PendingIntent.getActivity(
+                this, 0, Intent(Intent.ACTION_VIEW, android.net.Uri.parse("$root/")),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        } else {
+            PendingIntent.getActivity(
+                this, 0, Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        }
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(id.arif.okxnotif.R.drawable.ic_stat_chart)
             .setContentTitle(title)
