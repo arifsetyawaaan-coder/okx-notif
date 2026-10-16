@@ -67,14 +67,15 @@ class PriceService : Service() {
     }
 
     private fun line(sym: String, last: Double?, pos: Position): String {
-        if (last == null) return "$sym: gagal ambil harga"
+        if (last == null) return sym + ": gagal ambil harga"
         val pnl = (last - pos.avg) * pos.qty
         val pct = (last - pos.avg) / pos.avg * 100
         val arrow = if (pct >= 0) "▲" else "▼"
         val price = fmtPrice(last)
         val pctS = "%+.1f".format(Locale.US, pct) + "%"
-        val pnlS = (if (pnl < 0) "-$" else "+$") + "%,.2f".format(Locale.US, kotlin.math.abs(pnl))
-        return "$sym $$$price · $arrow $pctS · $pnlS"
+        val sign = if (pnl < 0) "-" else "+"
+        val pnlS = sign + "$" + "%,.2f".format(Locale.US, kotlin.math.abs(pnl))
+        return sym + " $" + price + " · " + arrow + " " + pctS + " · " + pnlS
     }
 
     private fun regime(chg: Double): String = when {
@@ -90,11 +91,10 @@ class PriceService : Service() {
         val l1 = line("HYPE", hype, Prefs.getHype(this))
         val l2 = line("ZEC", zec, Prefs.getZec(this))
         val title = if (btc != null) {
-            val btcChg = OkxApi.chg24("BTC-USDT")
-            val r = if (btcChg != null) " · ${regime(btcChg)}" else ""
-            val arrow = if ((btcChg ?: 0.0) >= 0) "▲" else "▼"
-            val chgS = if (btcChg != null) " " + "%+.1f".format(Locale.US, btcChg) + "%" else ""
-            "BTC \$${fmtPrice(btc)} · $arrow$chgS$r"
+            val btcChg = OkxApi.chg24("BTC-USDT") ?: 0.0
+            val arrow = if (btcChg >= 0) "▲" else "▼"
+            val chgS = "%+.1f".format(Locale.US, btcChg) + "%"
+            "BTC $" + fmtPrice(btc) + " · " + arrow + " " + chgS
         } else "Harga OKX"
         val text = if (hype != null && zec != null) "$l1\n$l2" else "$l1\n$l2\n(periksa koneksi)"
         return title to text
