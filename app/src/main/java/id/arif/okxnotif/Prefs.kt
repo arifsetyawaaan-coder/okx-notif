@@ -20,7 +20,7 @@ object Prefs {
         qty = prefs(ctx).getString("zec_qty", "0.03555")!!.toDoubleOrNull() ?: 0.03555,
     )
     fun getIntervalSec(ctx: Context): Long =
-        prefs(ctx).getString("interval", "60")!!.toLongOrNull()?.coerceIn(10, 60) ?: 60L
+        prefs(ctx).getString("interval", "10")!!.toLongOrNull()?.coerceIn(10, 60) ?: 10L
     fun getUrl(ctx: Context): String = prefs(ctx).getString("api_url", "") ?: ""
     fun getToken(ctx: Context): String = prefs(ctx).getString("api_token", "") ?: ""
     fun isRunning(ctx: Context): Boolean = prefs(ctx).getBoolean("running", false)

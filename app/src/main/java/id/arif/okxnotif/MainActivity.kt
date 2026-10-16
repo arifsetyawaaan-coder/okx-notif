@@ -102,10 +102,22 @@ fun AnimOutlinedButton(onClick: () -> Unit, text: String) {
 }
 
 @Composable
+fun AnimCard(content: @Composable () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.98f else 1f, label = "card")
+    Card(
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        interactionSource = interaction,
+        onClick = {},
+        modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale)) { content() }
+}
+
+@Composable
 fun CoinCard(c: CoinUi) {
     val up = (c.pnlPct ?: c.chg) >= 0
     val posColor = if (up) Green else Red
-    Card(colors = CardDefaults.cardColors(containerColor = CardBg)) {
+    AnimCard {
         Column(Modifier.padding(14.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(c.sym, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
@@ -187,11 +199,12 @@ class MainActivity : ComponentActivity() {
         var data by remember { mutableStateOf<ScreenData?>(null) }
         var refreshing by remember { mutableStateOf(false) }
         var err by remember { mutableStateOf<String?>(null) }
-        var showSettings by remember { mutableStateOf(false) }
+        var page by remember { mutableStateOf("home") }
         var url by remember { mutableStateOf(Prefs.getUrl(ctx)) }
         var token by remember { mutableStateOf(Prefs.getToken(ctx)) }
         var interval by remember { mutableStateOf(Prefs.getIntervalSec(ctx).toString()) }
         var running by remember { mutableStateOf(Prefs.isRunning(ctx)) }
+        var savedAt by remember { mutableStateOf("") }
         val scope = rememberCoroutineScope()
 
         suspend fun load() {
@@ -206,59 +219,124 @@ class MainActivity : ComponentActivity() {
         }
         LaunchedEffect(Unit) { load() }
 
-        PullToRefreshBox(
-            isRefreshing = refreshing,
-            onRefresh = { scope.launch { load() } },
-            modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                item {
-                    val total = data?.coins?.mapNotNull { it.pnl }?.sum()
-                    Text(
-                        if (total == null) "OKX Notif"
-                        else "Total ${if (total < 0) "-" else "+"}$${"%,.2f".format(Locale.US, kotlin.math.abs(total))}",
-                        fontSize = 24.sp, fontWeight = FontWeight.Bold,
-                        color = if ((total ?: 0.0) < 0) Red else Green,
-                        fontFamily = FontFamily.Monospace)
-                    Text(data?.let { "BTC $${fmtPx(it.btcPx)} · ${"%+.2f".format(Locale.US, it.btcChg)}% · ${it.wib}" }
-                        ?: "Tarik ke bawah untuk refresh",
-                        color = Muted, fontSize = 12.sp)
-                }
-                err?.let { item { Text(it, color = Red, fontSize = 13.sp) } }
-                data?.let { d ->
-                    items(d.coins, key = { it.sym }) { CoinCard(it) }
-                }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AnimOutlinedButton(onClick = {
-                            scope.launch {
-                                Prefs.saveAdv(ctx, url, token, interval)
-                                load()
-                                val i = android.content.Intent(ctx, PriceService::class.java)
-                                if (running) ctx.stopService(i)
-                                androidx.core.content.ContextCompat.startForegroundService(ctx, i)
-                                Prefs.setRunning(ctx, true)
-                                running = true
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().padding(12.dp, 12.dp, 12.dp, 0.dp),
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("OKX Pulse", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Color.White)
+                if (page == "home") AnimOutlinedButton(onClick = { page = "settings" }, text = "⚙ Setting")
+                else AnimOutlinedButton(onClick = { page = "home" }, text = "← Kembali")
+            }
+            androidx.compose.animation.AnimatedVisibility(page == "home") {
+                PullToRefreshBox(
+                    isRefreshing = refreshing,
+                    onRefresh = { scope.launch { load() } },
+                    modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        item {
+                            val total = data?.coins?.mapNotNull { it.pnl }?.sum()
+                            Card(colors = CardDefaults.cardColors(containerColor = CardBg)) {
+                                Column(Modifier.padding(14.dp)) {
+                                    Text(
+                                        if (total == null) "Total PnL —"
+                                        else "Total ${if (total < 0) "-" else "+"}$${"%,.2f".format(Locale.US, kotlin.math.abs(total))}",
+                                        fontSize = 24.sp, fontWeight = FontWeight.Bold,
+                                        color = if ((total ?: 0.0) < 0) Red else Green,
+                                        fontFamily = FontFamily.Monospace)
+                                    Text(data?.wib ?: "Tarik ke bawah untuk refresh",
+                                        color = Muted, fontSize = 12.sp)
+                                }
                             }
-                        }, text = if (running) "Restart notif" else "Nyalakan notif")
-                        if (running) AnimOutlinedButton(onClick = {
-                            ctx.stopService(android.content.Intent(ctx, PriceService::class.java))
-                            Prefs.setRunning(ctx, false)
-                            running = false
-                        }, text = "Matikan")
-                        AnimOutlinedButton(onClick = { showSettings = !showSettings }, text = "Setting")
+                        }
+                        err?.let { item { Text(it, color = Red, fontSize = 13.sp) } }
+                        data?.let { d ->
+                            val active = d.coins.filter { (it.qty ?: 0.0) > 0 }
+                            items(active, key = { it.sym }) { CoinCard(it) }
+                            item {
+                                Card(colors = CardDefaults.cardColors(containerColor = CardBg)) {
+                                    Column(Modifier.padding(14.dp)) {
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("BTC", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+                                            Text(
+                                                "${if (d.btcChg >= 0) "▲" else "▼"} ${"%+.1f".format(Locale.US, d.btcChg)}%",
+                                                color = if (d.btcChg >= 0) Green else Red, fontSize = 13.sp,
+                                                fontFamily = FontFamily.Monospace)
+                                        }
+                                        Spacer(Modifier.height(2.dp))
+                                        Text("$${fmtPx(d.btcPx)}", fontSize = 30.sp, fontWeight = FontWeight.Bold,
+                                            color = Color.White, fontFamily = FontFamily.Monospace)
+                                        Text("Kondisi pasar", color = Muted, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                AnimOutlinedButton(onClick = { scope.launch { load() } }, text = "Refresh")
+                                AnimOutlinedButton(onClick = {
+                                    scope.launch {
+                                        Prefs.saveAdv(ctx, url, token, interval)
+                                        load()
+                                        val i = android.content.Intent(ctx, PriceService::class.java)
+                                        if (running) ctx.stopService(i)
+                                        androidx.core.content.ContextCompat.startForegroundService(ctx, i)
+                                        Prefs.setRunning(ctx, true)
+                                        running = true
+                                    }
+                                }, text = if (running) "Restart notif" else "Nyalakan notif")
+                                if (running) AnimOutlinedButton(onClick = {
+                                    ctx.stopService(android.content.Intent(ctx, PriceService::class.java))
+                                    Prefs.setRunning(ctx, false)
+                                    running = false
+                                }, text = "Matikan")
+                            }
+                        }
                     }
                 }
-                if (showSettings) {
+            }
+            androidx.compose.animation.AnimatedVisibility(page == "settings") {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     item {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            OutlinedTextField(url, { url = it }, label = { Text("URL JSON (tunnel)") }, singleLine = true)
-                            OutlinedTextField(token, { token = it }, label = { Text("Token") }, singleLine = true)
-                            OutlinedTextField(interval, { interval = it }, label = { Text("Refresh detik (10-60)") }, singleLine = true)
-                            Button(onClick = {
-                                Prefs.saveAdv(ctx, url, token, interval)
-                            }) { Text("Simpan") }
+                        Card(colors = CardDefaults.cardColors(containerColor = CardBg)) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Koneksi VPS", fontWeight = FontWeight.Bold, color = Color.White)
+                                OutlinedTextField(url, { url = it }, label = { Text("URL JSON") }, singleLine = true)
+                                OutlinedTextField(token, { token = it }, label = { Text("Token") }, singleLine = true)
+                                OutlinedTextField(interval, { interval = it }, label = { Text("Refresh detik (10-60)") }, singleLine = true)
+                            }
+                        }
+                    }
+                    item {
+                        Card(colors = CardDefaults.cardColors(containerColor = CardBg)) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Notifikasi", fontWeight = FontWeight.Bold, color = Color.White)
+                                Text(if (running) "Status: nyala" else "Status: mati", color = Muted, fontSize = 13.sp)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = {
+                                        Prefs.saveAdv(ctx, url, token, interval)
+                                        savedAt = java.text.SimpleDateFormat("HH.mm.ss", Locale.US).format(java.util.Date())
+                                    }) { Text("Simpan") }
+                                    if (running) AnimOutlinedButton(onClick = {
+                                        ctx.stopService(android.content.Intent(ctx, PriceService::class.java))
+                                        Prefs.setRunning(ctx, false)
+                                        running = false
+                                    }, text = "Matikan")
+                                    else AnimOutlinedButton(onClick = {
+                                        scope.launch {
+                                            Prefs.saveAdv(ctx, url, token, interval)
+                                            val i = android.content.Intent(ctx, PriceService::class.java)
+                                            androidx.core.content.ContextCompat.startForegroundService(ctx, i)
+                                            Prefs.setRunning(ctx, true)
+                                            running = true
+                                        }
+                                    }, text = "Nyalakan")
+                                }
+                                if (savedAt.isNotBlank()) Text("Tersimpan $savedAt", color = Green, fontSize = 13.sp)
+                            }
                         }
                     }
                 }
