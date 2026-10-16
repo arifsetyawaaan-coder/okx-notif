@@ -85,16 +85,16 @@ class PriceService : Service() {
     }
 
     private fun coinLine(c: CoinUi): String {
-        val arrow = if ((c.pnlPct ?: c.chg) >= 0) "▲" else "▼"
+        val arrow = if (c.chg >= 0) "▲" else "▼"
         val left = c.sym + " $" + fmtPrice(c.px)
-        val right = if (c.pnl != null && c.pnlPct != null) {
+        val mid = arrow + " " + "%+.1f".format(Locale.US, c.chg) + "%"
+        return if (c.pnl != null) {
             val sign = if (c.pnl < 0) "-" else "+"
-            arrow + " " + "%+.1f".format(Locale.US, c.pnlPct) + "% · " + sign + "$" +
+            left + " · " + mid + " · " + sign + "$" +
                 "%,.2f".format(Locale.US, kotlin.math.abs(c.pnl))
         } else {
-            arrow + " " + "%+.1f".format(Locale.US, c.chg) + "%"
+            left + " · " + mid
         }
-        return left + " · " + right
     }
 
     private fun openPending(): PendingIntent {
@@ -126,24 +126,40 @@ class PriceService : Service() {
         // Utama: JSON VPS (angka SAMA dengan Telegram/monitor). Cadangan: ticker langsung.
         val data = ScreenApi.load(Prefs.getUrl(this), Prefs.getToken(this))
         if (data != null && data.coins.isNotEmpty()) {
-            val arrow = if (data.btcChg >= 0) "▲" else "▼"
-            val title = "BTC $" + fmtPrice(data.btcPx) + " · " + arrow + " " +
+            val total = data.coins.mapNotNull { it.pnl }.sum()
+            val title = "Total PnL " + (if (total < 0) "-" else "+") + "$" +
+                "%,.2f".format(Locale.US, kotlin.math.abs(total))
+            val bArrow = if (data.btcChg >= 0) "▲" else "▼"
+            val btcRow = "BTC $" + fmtPrice(data.btcPx) + " · " + bArrow + " " +
                 "%+.1f".format(Locale.US, data.btcChg) + "%"
-            val show = data.coins.take(4)
-            return title to show.joinToString("\n") { coinLine(it) }
+            val show = data.coins.filter { it.px > 1 }.take(2)
+            return title to ([btcRow] + show.map { coinLine(it) }).joinToString("\n")
         }
         val hype = OkxApi.last("HYPE-USDT")
         val zec = OkxApi.last("ZEC-USDT")
         val btc = OkxApi.last("BTC-USDT")
-        val l1 = line("HYPE", hype, Prefs.getHype(this))
-        val l2 = line("ZEC", zec, Prefs.getZec(this))
-        val title = if (btc != null) {
-            val btcChg = OkxApi.chg24("BTC-USDT") ?: 0.0
-            val arrow = if (btcChg >= 0) "▲" else "▼"
-            val chgS = "%+.1f".format(Locale.US, btcChg) + "%"
-            "BTC $" + fmtPrice(btc) + " · " + arrow + " " + chgS
-        } else "Harga OKX"
-        val text = if (hype != null && zec != null) "$l1\n$l2" else "$l1\n$l2\n(periksa koneksi)"
+        val btcChg = OkxApi.chg24("BTC-USDT") ?: 0.0
+        val hChg = OkxApi.chg24("HYPE-USDT") ?: 0.0
+        val zChg = OkxApi.chg24("ZEC-USDT") ?: 0.0
+        val hPnl = if (hype != null) (hype - Prefs.getHype(this).avg) * Prefs.getHype(this).qty else null
+        val zPnl = if (zec != null) (zec - Prefs.getZec(this).avg) * Prefs.getZec(this).qty else null
+        val total = listOfNotNull(hPnl, zPnl).sum()
+        val title = "Total PnL " + (if (total < 0) "-" else "+") + "$" +
+            "%,.2f".format(Locale.US, kotlin.math.abs(total))
+        fun row(sym: String, last: Double?, chg: Double, pnl: Double?): String {
+            val arrow = if (chg >= 0) "▲" else "▼"
+            val left = if (last != null) sym + " $" + fmtPrice(last) else sym + " -"
+            val mid = arrow + " " + "%+.1f".format(Locale.US, chg) + "%"
+            return if (pnl != null) {
+                val sign = if (pnl < 0) "-" else "+"
+                left + " · " + mid + " · " + sign + "$" +
+                    "%,.2f".format(Locale.US, kotlin.math.abs(pnl))
+            } else left + " · " + mid
+        }
+        val bArrow = if (btcChg >= 0) "▲" else "▼"
+        val bRow = if (btc != null) "BTC $" + fmtPrice(btc) + " · " + bArrow + " " +
+            "%+.1f".format(Locale.US, btcChg) + "%" else "BTC -"
+        val text = listOf(bRow, row("HYPE", hype, hChg, hPnl), row("ZEC", zec, zChg, zPnl)).joinToString("\n")
         return title to text
     }
 
