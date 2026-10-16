@@ -164,7 +164,7 @@ class MainActivity : ComponentActivity() {
             val d = withContext(Dispatchers.IO) {
                 ScreenApi.load(Prefs.getUrl(ctx), Prefs.getToken(ctx))
             }
-            if (d == null) err = "Gagal ambil JSON — cek URL/token/koneksi"
+            if (d == null) err = ScreenApi.lastError.ifBlank { "Gagal ambil JSON" }
             else data = d
             refreshing = false
         }

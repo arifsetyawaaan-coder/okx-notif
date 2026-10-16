@@ -24,20 +24,42 @@ data class CoinUi(
 data class ScreenData(val wib: String, val btcPx: Double, val btcChg: Double, val coins: List<CoinUi>)
 
 object ScreenApi {
+    var lastError: String = ""
     fun load(baseUrl: String, token: String): ScreenData? {
-        if (baseUrl.isBlank()) return null
+        if (baseUrl.isBlank()) {
+            lastError = "URL kosong — isi di Setting"
+            return null
+        }
         var conn: HttpURLConnection? = null
         return try {
-            val url = baseUrl.trimEnd('/') + "/screening.json"
+            var root = baseUrl.trim().trimEnd('/')
+            if (root.endsWith("/screening.json")) root = root.removeSuffix("/screening.json")
+            val url = "$root/screening.json"
             conn = (URL(url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 20000
                 readTimeout = 20000
                 setRequestProperty("Authorization", "Bearer $token")
                 setRequestProperty("User-Agent", "okx-notif/1.0")
             }
-            if (conn.responseCode != 200) return null
+            val code = conn.responseCode
+            if (code == 401) {
+                lastError = "Token ditolak (401) — cek token di Setting"
+                return null
+            }
+            if (code == 404) {
+                lastError = "URL salah (404)"
+                return null
+            }
+            if (code != 200) {
+                lastError = "Server jawab $code"
+                return null
+            }
             parse(JSONObject(conn.inputStream.bufferedReader().readText()))
+        } catch (_: java.net.SocketTimeoutException) {
+            lastError = "Timeout — cek koneksi/WARP"
+            null
         } catch (_: Exception) {
+            lastError = "Koneksi gagal — cek URL + internet"
             null
         } finally {
             conn?.disconnect()
