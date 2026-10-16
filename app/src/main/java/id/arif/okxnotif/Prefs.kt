@@ -21,14 +21,13 @@ object Prefs {
     )
     fun getIntervalSec(ctx: Context): Long =
         prefs(ctx).getString("interval", "60")!!.toLongOrNull()?.coerceIn(10, 900) ?: 60L
+    fun getUrl(ctx: Context): String = prefs(ctx).getString("api_url", "") ?: ""
+    fun getToken(ctx: Context): String = prefs(ctx).getString("api_token", "") ?: ""
     fun isRunning(ctx: Context): Boolean = prefs(ctx).getBoolean("running", false)
 
-    fun save(ctx: Context, hypeAvg: String, hypeQty: String, zecAvg: String, zecQty: String, interval: String) {
-        prefs(ctx).edit()
-            .putString("hype_avg", hypeAvg).putString("hype_qty", hypeQty)
-            .putString("zec_avg", zecAvg).putString("zec_qty", zecQty)
-            .putString("interval", interval)
-            .apply()
+    fun saveAdv(ctx: Context, url: String, token: String, interval: String) {
+        prefs(ctx).edit().putString("api_url", url.trim()).putString("api_token", token.trim())
+            .putString("interval", interval).apply()
     }
     fun setRunning(ctx: Context, v: Boolean) {
         prefs(ctx).edit().putBoolean("running", v).apply()

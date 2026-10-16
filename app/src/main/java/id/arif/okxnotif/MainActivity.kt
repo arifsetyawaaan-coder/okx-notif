@@ -1,100 +1,232 @@
 package id.arif.okxnotif
 
 import android.Manifest
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.widget.Button
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.TextView
-import android.widget.Toast
-import android.app.Activity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 
-class MainActivity : Activity() {
+private val Green = Color(0xFF26A69A)
+private val Red = Color(0xFFEF5350)
+private val Bg = Color(0xFF0A0E14)
+private val CardBg = Color(0xFF141A24)
+private val Muted = Color(0xFF8B93A7)
 
-    private lateinit var eHypeAvg: EditText
-    private lateinit var eHypeQty: EditText
-    private lateinit var eZecAvg: EditText
-    private lateinit var eZecQty: EditText
-    private lateinit var eInterval: EditText
-    private lateinit var btnToggle: Button
-    private lateinit var tvState: TextView
+private fun fmtPx(x: Double): String = when {
+    x >= 1000 -> "%,.0f".format(Locale.US, x)
+    x >= 100 -> "%.2f".format(Locale.US, x)
+    x >= 1 -> "%.4f".format(Locale.US, x).trimEnd('0').trimEnd('.')
+    else -> "%.6f".format(Locale.US, x).trimEnd('0').trimEnd('.')
+}
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val pad = (16 * resources.displayMetrics.density).toInt()
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
+@Composable
+fun Sparkline(data: List<Double>, up: Boolean, modifier: Modifier = Modifier) {
+    val color = if (up) Green else Red
+    Canvas(modifier = modifier.height(44.dp).fillMaxWidth()) {
+        if (data.size < 2) return@Canvas
+        val mn = data.minOrNull() ?: return@Canvas
+        val mx = data.maxOrNull() ?: return@Canvas
+        val span = (mx - mn).takeIf { it > 0 } ?: 1.0
+        val path = Path()
+        data.forEachIndexed { i, v ->
+            val x = size.width * i / (data.size - 1)
+            val y = size.height - ((v - mn) / span * size.height * 0.9f + size.height * 0.05f).toFloat()
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
-        fun label(s: String) = TextView(this).apply { text = s; root.addView(this) }
-        fun field(v: String) = EditText(this).apply {
-            setText(v); root.addView(this)
-        }
-        label("HYPE avg / qty")
-        eHypeAvg = field(Prefs.getHype(this).avg.toString())
-        eHypeQty = field(Prefs.getHype(this).qty.toString())
-        label("ZEC avg / qty")
-        eZecAvg = field(Prefs.getZec(this).avg.toString())
-        eZecQty = field(Prefs.getZec(this).qty.toString())
-        label("Refresh detik (10-900)")
-        eInterval = field(Prefs.getIntervalSec(this).toString())
-        tvState = TextView(this)
-        root.addView(tvState)
-        val btnSave = Button(this).apply { text = "Simpan" }
-        btnToggle = Button(this)
-        root.addView(btnSave)
-        root.addView(btnToggle)
-        setContentView(root)
-
-        btnSave.setOnClickListener {
-            Prefs.save(this, eHypeAvg.text.toString(), eHypeQty.text.toString(),
-                eZecAvg.text.toString(), eZecQty.text.toString(), eInterval.text.toString())
-            Toast.makeText(this, "Tersimpan", Toast.LENGTH_SHORT).show()
-        }
-        btnToggle.setOnClickListener {
-            if (Build.VERSION.SDK_INT >= 33 &&
-                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-            ) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-                return@setOnClickListener
-            }
-            toggle()
-        }
-        refreshUi()
-    }
-
-    private fun toggle() {
-        val intent = Intent(this, PriceService::class.java)
-        if (Prefs.isRunning(this)) {
-            stopService(intent)
-            Prefs.setRunning(this, false)
-        } else {
-            Prefs.save(this, eHypeAvg.text.toString(), eHypeQty.text.toString(),
-                eZecAvg.text.toString(), eZecQty.text.toString(), eInterval.text.toString())
-            ContextCompat.startForegroundService(this, intent)
-            Prefs.setRunning(this, true)
-        }
-        refreshUi()
-    }
-
-    private fun refreshUi() {
-        val on = Prefs.isRunning(this)
-        btnToggle.text = if (on) "Matikan notifikasi" else "Nyalakan notifikasi"
-        tvState.text = if (on) "Status: notifikasi aktif" else "Status: mati"
+        drawPath(path, color = color, style = Stroke(width = 3f))
+        val last = data.last()
+        val lx = size.width
+        val ly = size.height - ((last - mn) / span * size.height * 0.9f + size.height * 0.05f).toFloat()
+        drawCircle(color, radius = 6f, center = Offset(lx - 3f, ly))
     }
 }
 
-class BootReceiver : BroadcastReceiver() {
-    override fun onReceive(ctx: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED && Prefs.isRunning(ctx)) {
-            ContextCompat.startForegroundService(ctx, Intent(ctx, PriceService::class.java))
+@Composable
+fun CoinCard(c: CoinUi) {
+    val up = (c.pnlPct ?: c.chg) >= 0
+    val posColor = if (up) Green else Red
+    Card(colors = CardDefaults.cardColors(containerColor = CardBg)) {
+        Column(Modifier.padding(14.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(c.sym, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+                Text(
+                    "${if (c.chg >= 0) "▲" else "▼"} ${"%+.1f".format(Locale.US, c.chg)}%",
+                    color = if (c.chg >= 0) Green else Red, fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace)
+            }
+            Spacer(Modifier.height(2.dp))
+            Text("$${fmtPx(c.px)}", fontSize = 30.sp, fontWeight = FontWeight.Bold,
+                color = Color.White, fontFamily = FontFamily.Monospace)
+            if (c.pnl != null && c.pnlPct != null) {
+                val s = if (c.pnl < 0) "-" else "+"
+                Text("$s$${"%,.2f".format(Locale.US, kotlin.math.abs(c.pnl))}  (${"%+.1f".format(Locale.US, c.pnlPct)}%)",
+                    color = posColor, fontSize = 19.sp, fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Monospace)
+            }
+            Spacer(Modifier.height(6.dp))
+            Sparkline(c.spark, up)
+            Spacer(Modifier.height(6.dp))
+            val stats = buildList {
+                add("RSI ${"%.0f".format(c.rsi)}")
+                add("Pos ${"%.0f".format(c.ratio)}%")
+                c.funding?.let { add("Fund ${"%.4f".format(it)}") }
+                c.tpDist?.let { add("TP ${"%+.1f".format(it)}%") }
+                c.tp?.let { add("TP@${fmtPx(it)}") }
+            }
+            Text(stats.joinToString(" · "), color = Muted, fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+class MainActivity : ComponentActivity() {
+
+    private val permReq = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()) {}
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permReq.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        setContent {
+            MaterialTheme(colorScheme = darkColorScheme(
+                background = Bg, surface = Bg, primary = Green)) {
+                Screen()
+            }
+        }
+    }
+
+    @Composable
+    fun Screen() {
+        val ctx = LocalContext.current
+        var data by remember { mutableStateOf<ScreenData?>(null) }
+        var refreshing by remember { mutableStateOf(false) }
+        var err by remember { mutableStateOf<String?>(null) }
+        var showSettings by remember { mutableStateOf(false) }
+        var url by remember { mutableStateOf(Prefs.getUrl(ctx)) }
+        var token by remember { mutableStateOf(Prefs.getToken(ctx)) }
+        var interval by remember { mutableStateOf(Prefs.getIntervalSec(ctx).toString()) }
+        var running by remember { mutableStateOf(Prefs.isRunning(ctx)) }
+        val scope = rememberCoroutineScope()
+
+        suspend fun load() {
+            refreshing = true
+            err = null
+            val d = withContext(Dispatchers.IO) {
+                ScreenApi.load(Prefs.getUrl(ctx), Prefs.getToken(ctx))
+            }
+            if (d == null) err = "Gagal ambil JSON — cek URL/token/koneksi"
+            else data = d
+            refreshing = false
+        }
+        LaunchedEffect(Unit) { load() }
+
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = { scope.launch { load() } },
+            modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item {
+                    val total = data?.coins?.mapNotNull { it.pnl }?.sum()
+                    Text(
+                        if (total == null) "OKX Notif"
+                        else "Total ${if (total < 0) "-" else "+"}$${"%,.2f".format(Locale.US, kotlin.math.abs(total))}",
+                        fontSize = 24.sp, fontWeight = FontWeight.Bold,
+                        color = if ((total ?: 0.0) < 0) Red else Green,
+                        fontFamily = FontFamily.Monospace)
+                    Text(data?.let { "BTC $${fmtPx(it.btcPx)} · ${"%+.2f".format(Locale.US, it.btcChg)}% · ${it.wib}" }
+                        ?: "Tarik ke bawah untuk refresh",
+                        color = Muted, fontSize = 12.sp)
+                }
+                err?.let { item { Text(it, color = Red, fontSize = 13.sp) } }
+                data?.let { d ->
+                    items(d.coins, key = { it.sym }) { CoinCard(it) }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = {
+                            scope.launch {
+                                Prefs.saveAdv(ctx, url, token, interval)
+                                load()
+                                val i = android.content.Intent(ctx, PriceService::class.java)
+                                if (running) ctx.stopService(i)
+                                androidx.core.content.ContextCompat.startForegroundService(ctx, i)
+                                Prefs.setRunning(ctx, true)
+                                running = true
+                            }
+                        }) { Text(if (running) "Restart notif" else "Nyalakan notif") }
+                        if (running) OutlinedButton(onClick = {
+                            ctx.stopService(android.content.Intent(ctx, PriceService::class.java))
+                            Prefs.setRunning(ctx, false)
+                            running = false
+                        }) { Text("Matikan") }
+                        OutlinedButton(onClick = { showSettings = !showSettings }) { Text("Setting") }
+                    }
+                }
+                if (showSettings) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedTextField(url, { url = it }, label = { Text("URL JSON (tunnel)") }, singleLine = true)
+                            OutlinedTextField(token, { token = it }, label = { Text("Token") }, singleLine = true)
+                            OutlinedTextField(interval, { interval = it }, label = { Text("Refresh detik (10-900)") }, singleLine = true)
+                            Button(onClick = {
+                                Prefs.saveAdv(ctx, url, token, interval)
+                            }) { Text("Simpan") }
+                        }
+                    }
+                }
+            }
         }
     }
 }

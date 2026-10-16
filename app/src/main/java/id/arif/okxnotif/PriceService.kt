@@ -84,7 +84,29 @@ class PriceService : Service() {
         else -> "Sideway"
     }
 
+    private fun coinLine(c: CoinUi): String {
+        val arrow = if ((c.pnlPct ?: c.chg) >= 0) "▲" else "▼"
+        val left = c.sym + " $" + fmtPrice(c.px)
+        val right = if (c.pnl != null && c.pnlPct != null) {
+            val sign = if (c.pnl < 0) "-" else "+"
+            arrow + " " + "%+.1f".format(Locale.US, c.pnlPct) + "% · " + sign + "$" +
+                "%,.2f".format(Locale.US, kotlin.math.abs(c.pnl))
+        } else {
+            arrow + " " + "%+.1f".format(Locale.US, c.chg) + "%"
+        }
+        return left + " · " + right
+    }
+
     private fun fetchLines(): Pair<String, String> {
+        // Utama: JSON VPS (angka SAMA dengan Telegram/monitor). Cadangan: ticker langsung.
+        val data = ScreenApi.load(Prefs.getUrl(this), Prefs.getToken(this))
+        if (data != null && data.coins.isNotEmpty()) {
+            val arrow = if (data.btcChg >= 0) "▲" else "▼"
+            val title = "BTC $" + fmtPrice(data.btcPx) + " · " + arrow + " " +
+                "%+.1f".format(Locale.US, data.btcChg) + "%"
+            val show = data.coins.take(4)
+            return title to show.joinToString("\n") { coinLine(it) }
+        }
         val hype = OkxApi.last("HYPE-USDT")
         val zec = OkxApi.last("ZEC-USDT")
         val btc = OkxApi.last("BTC-USDT")
