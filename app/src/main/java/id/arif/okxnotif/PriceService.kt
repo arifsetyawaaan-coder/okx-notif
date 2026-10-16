@@ -213,7 +213,7 @@ class PriceService : Service() {
         return root
     }
 
-    private fun build(title: String, text: String, pic: android.graphics.Bitmap?): Notification {
+    private fun build(title: String, text: String, pic: android.graphics.Bitmap? = null): Notification {
         val root = webUrl()
         val open = if (root.isNotBlank()) {
             PendingIntent.getActivity(
