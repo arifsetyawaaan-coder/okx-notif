@@ -8,7 +8,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +44,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -84,6 +88,17 @@ fun Sparkline(data: List<Double>, up: Boolean, modifier: Modifier = Modifier) {
         val ly = size.height - ((last - mn) / span * size.height * 0.9f + size.height * 0.05f).toFloat()
         drawCircle(color, radius = 6f, center = Offset(lx - 3f, ly))
     }
+}
+
+@Composable
+fun AnimOutlinedButton(onClick: () -> Unit, text: String) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.93f else 1f, label = "press")
+    OutlinedButton(
+        onClick = onClick,
+        interactionSource = interaction,
+        modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale)) { Text(text) }
 }
 
 @Composable
@@ -216,7 +231,7 @@ class MainActivity : ComponentActivity() {
                 }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = {
+                        AnimOutlinedButton(onClick = {
                             scope.launch {
                                 Prefs.saveAdv(ctx, url, token, interval)
                                 load()
@@ -226,13 +241,13 @@ class MainActivity : ComponentActivity() {
                                 Prefs.setRunning(ctx, true)
                                 running = true
                             }
-                        }) { Text(if (running) "Restart notif" else "Nyalakan notif") }
-                        if (running) OutlinedButton(onClick = {
+                        }, text = if (running) "Restart notif" else "Nyalakan notif")
+                        if (running) AnimOutlinedButton(onClick = {
                             ctx.stopService(android.content.Intent(ctx, PriceService::class.java))
                             Prefs.setRunning(ctx, false)
                             running = false
-                        }) { Text("Matikan") }
-                        OutlinedButton(onClick = { showSettings = !showSettings }) { Text("Setting") }
+                        }, text = "Matikan")
+                        AnimOutlinedButton(onClick = { showSettings = !showSettings }, text = "Setting")
                     }
                 }
                 if (showSettings) {
