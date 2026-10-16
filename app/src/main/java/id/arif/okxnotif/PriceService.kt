@@ -133,7 +133,7 @@ class PriceService : Service() {
             val btcRow = "BTC $" + fmtPrice(data.btcPx) + " · " + bArrow + " " +
                 "%+.1f".format(Locale.US, data.btcChg) + "%"
             val show = data.coins.filter { it.px > 1 }.take(2)
-            return title to ([btcRow] + show.map { coinLine(it) }).joinToString("\n")
+            return title to (listOf(btcRow) + show.map { coinLine(it) }).joinToString("\n")
         }
         val hype = OkxApi.last("HYPE-USDT")
         val zec = OkxApi.last("ZEC-USDT")
