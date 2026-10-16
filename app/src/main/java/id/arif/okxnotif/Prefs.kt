@@ -20,7 +20,7 @@ object Prefs {
         qty = prefs(ctx).getString("zec_qty", "0.03555")!!.toDoubleOrNull() ?: 0.03555,
     )
     fun getIntervalSec(ctx: Context): Long =
-        prefs(ctx).getString("interval", "60")!!.toLongOrNull()?.coerceIn(30, 900) ?: 60L
+        prefs(ctx).getString("interval", "60")!!.toLongOrNull()?.coerceIn(10, 900) ?: 60L
     fun isRunning(ctx: Context): Boolean = prefs(ctx).getBoolean("running", false)
 
     fun save(ctx: Context, hypeAvg: String, hypeQty: String, zecAvg: String, zecQty: String, interval: String) {

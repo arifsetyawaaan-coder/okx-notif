@@ -105,7 +105,7 @@ class PriceService : Service() {
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(id.arif.okxnotif.R.drawable.ic_stat_chart)
             .setContentTitle(title)
             .setContentText(text.replace("\n", " · "))
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))

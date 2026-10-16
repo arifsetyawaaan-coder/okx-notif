@@ -43,7 +43,7 @@ class MainActivity : Activity() {
         label("ZEC avg / qty")
         eZecAvg = field(Prefs.getZec(this).avg.toString())
         eZecQty = field(Prefs.getZec(this).qty.toString())
-        label("Refresh detik (30-900)")
+        label("Refresh detik (10-900)")
         eInterval = field(Prefs.getIntervalSec(this).toString())
         tvState = TextView(this)
         root.addView(tvState)
