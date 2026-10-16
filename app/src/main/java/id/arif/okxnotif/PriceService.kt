@@ -31,20 +31,27 @@ class PriceService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIF_ID, build("Menyiapkan…", "Mengambil harga OKX…", null))
+        if (intent?.action == ACTION_REFRESH) {
+            restartLoop()
+            return START_STICKY
+        }
+        startForeground(NOTIF_ID, buildSimple("Menyiapkan…", "Mengambil harga OKX…"))
+        restartLoop()
+        return START_STICKY
+    }
+
+    private fun restartLoop() {
         job?.cancel()
         job = CoroutineScope(Dispatchers.IO).launch {
             while (isActive) {
-                val (title, text, spark, up) = fetchAll()
-                val pic = spark?.let { renderSpark(it, up) }
+                val rows = fetchRows()
                 withContext(Dispatchers.Main) {
                     val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                    nm.notify(NOTIF_ID, build(title, text, pic))
+                    nm.notify(NOTIF_ID, buildRich(rows))
                 }
                 delay(Prefs.getIntervalSec(this@PriceService) * 1000L)
             }
         }
-        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -98,26 +105,114 @@ class PriceService : Service() {
         return left + " · " + right
     }
 
-    private fun fetchAll(): FetchResult {
-        // Utama: JSON VPS (angka SAMA dengan Telegram/monitor). Cadangan: ticker langsung.
+    private data class RowUi(
+        val sym: String,
+        val pxS: String,
+        val pctS: String,
+        val pctUp: Boolean,
+        val spark: android.graphics.Bitmap?,
+        val sparkUp: Boolean,
+    )
+
+    private fun fetchRows(): List<RowUi> {
         val data = ScreenApi.load(Prefs.getUrl(this), Prefs.getToken(this))
         if (data != null && data.coins.isNotEmpty()) {
-            val arrow = if (data.btcChg >= 0) "▲" else "▼"
-            val title = "BTC $" + fmtPrice(data.btcPx) + " · " + arrow + " " +
-                "%+.1f".format(Locale.US, data.btcChg) + "%"
-            val show = data.coins.take(4)
-            val first = show.firstOrNull()
-            val spark = first?.spark?.takeIf { it.size >= 2 }
-            val up = ((first?.pnlPct ?: first?.chg) ?: 0.0) >= 0
-            return FetchResult(title, show.joinToString("\n") { coinLine(it) }, spark, up)
+            val out = mutableListOf<RowUi>()
+            val coins = data.coins.filter { it.px > 1 }.take(2)
+            for (c in coins) {
+                val pct = c.pnlPct ?: c.chg
+                val pctS = "%+.1f".format(Locale.US, pct) + "%"
+                val pic = c.spark.takeIf { it.size >= 2 }?.let { renderSpark(it, pct >= 0) }
+                out.add(RowUi(c.sym, "$" + fmtPrice(c.px), pctS, pct >= 0, pic, pct >= 0))
+            }
+            val bUp = data.btcChg >= 0
+            val bSpark = OkxApi.spark30m("BTC-USDT")?.takeIf { it.size >= 2 }?.let { renderSpark(it, bUp) }
+            out.add(RowUi("BTC", "$" + fmtPrice(data.btcPx),
+                "%+.1f".format(Locale.US, data.btcChg) + "%", bUp, bSpark, bUp))
+            return out
         }
-        val hype = OkxApi.last("HYPE-USDT")
-        val hChg = OkxApi.chg24("HYPE-USDT") ?: 0.0
-        val spark = OkxApi.spark30m("HYPE-USDT")
-        val base = fetchLines()
-        return FetchResult(base.first, base.second, spark, hChg >= 0)
+        val out = mutableListOf<RowUi>()
+        for (id in listOf("HYPE-USDT", "ZEC-USDT")) {
+            val last = OkxApi.last(id)
+            val chg = OkxApi.chg24(id) ?: 0.0
+            val sp = OkxApi.spark30m(id)?.takeIf { it.size >= 2 }?.let { renderSpark(it, chg >= 0) }
+            out.add(RowUi(id.substringBefore("-"), if (last != null) "$" + fmtPrice(last) else "-",
+                "%+.1f".format(Locale.US, chg) + "%", chg >= 0, sp, chg >= 0))
+        }
+        val btc = OkxApi.last("BTC-USDT")
+        val bChg = OkxApi.chg24("BTC-USDT") ?: 0.0
+        val bSp = OkxApi.spark30m("BTC-USDT")?.takeIf { it.size >= 2 }?.let { renderSpark(it, bChg >= 0) }
+        out.add(RowUi("BTC", if (btc != null) "$" + fmtPrice(btc) else "-",
+            "%+.1f".format(Locale.US, bChg) + "%", bChg >= 0, bSp, bChg >= 0))
+        return out
     }
 
+    private fun openPending(): PendingIntent {
+        val root = webUrl()
+        return if (root.isNotBlank()) {
+            PendingIntent.getActivity(
+                this, 0, Intent(Intent.ACTION_VIEW, android.net.Uri.parse("$root/")),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        } else {
+            PendingIntent.getActivity(
+                this, 0, Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        }
+    }
+
+    private fun refreshPending(): PendingIntent {
+        val i = Intent(this, PriceService::class.java).setAction(ACTION_REFRESH)
+        return PendingIntent.getService(
+            this, 1, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    private fun buildSimple(title: String, text: String): Notification {
+        return NotificationCompat.Builder(this, CHANNEL)
+            .setSmallIcon(id.arif.okxnotif.R.drawable.ic_stat_chart)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setContentIntent(openPending())
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
+            .build()
+    }
+
+    private fun buildRich(rows: List<RowUi>): Notification {
+        val title = rows.firstOrNull()?.let { it.sym + " " + it.pxS } ?: "Harga OKX"
+        val collapsed = android.widget.RemoteViews(packageName, R.layout.notif_collapsed)
+        collapsed.setTextViewText(R.id.colTitle, title)
+        collapsed.setTextViewText(R.id.colText, rows.joinToString(" · ") { it.sym + " " + it.pctS })
+        val expanded = android.widget.RemoteViews(packageName, R.layout.notif_expanded)
+        val syms = intArrayOf(R.id.exSym1, R.id.exSym2, R.id.exSym3)
+        val pxs = intArrayOf(R.id.exPx1, R.id.exPx2, R.id.exPx3)
+        val pcts = intArrayOf(R.id.exPct1, R.id.exPct2, R.id.exPct3)
+        val sparks = intArrayOf(R.id.exSpark1, R.id.exSpark2, R.id.exSpark3)
+        val green = android.graphics.Color.parseColor("#22C55E")
+        val red = android.graphics.Color.parseColor("#F43F5E")
+        rows.take(3).forEachIndexed { i, r ->
+            expanded.setTextViewText(syms[i], r.sym)
+            expanded.setTextViewText(pxs[i], r.pxS)
+            expanded.setTextViewText(pcts[i], r.pctS)
+            expanded.setTextColor(pcts[i], if (r.pctUp) green else red)
+            if (r.spark != null) expanded.setImageViewBitmap(sparks[i], r.spark)
+            else expanded.setViewVisibility(sparks[i], android.view.View.GONE)
+        }
+        expanded.setOnClickPendingIntent(R.id.btnOpen, openPending())
+        expanded.setOnClickPendingIntent(R.id.btnRefresh, refreshPending())
+        return NotificationCompat.Builder(this, CHANNEL)
+            .setSmallIcon(id.arif.okxnotif.R.drawable.ic_stat_chart)
+            .setContentTitle(title)
+            .setContentText(rows.joinToString(" · ") { it.sym + " " + it.pctS })
+            .setCustomContentView(collapsed)
+            .setCustomBigContentView(expanded)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setContentIntent(openPending())
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
+            .build()
+    }
     private fun fetchLines(): Pair<String, String> {
         // Utama: JSON VPS (angka SAMA dengan Telegram/monitor). Cadangan: ticker langsung.
         val data = ScreenApi.load(Prefs.getUrl(this), Prefs.getToken(this))
@@ -222,5 +317,6 @@ class PriceService : Service() {
     companion object {
         const val CHANNEL = "okx_price"
         const val NOTIF_ID = 1001
+        const val ACTION_REFRESH = "id.arif.okxnotif.REFRESH"
     }
 }

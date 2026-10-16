@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="10dp">
+    <TextView android:id="@+id/exTotal"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="OKX Pulse" android:textColor="#FFFFFF" android:fontFamily="monospace"
+        android:textSize="15sp" android:textStyle="bold" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView android:id="@+id/exSym1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="HYPE" android:textColor="#FFFFFF" android:fontFamily="monospace" android:textSize="13sp" android:textStyle="bold" />
+        <TextView android:id="@+id/exPx1" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="" android:textColor="#FFFFFF" android:fontFamily="monospace" android:textSize="13sp" />
+        <TextView android:id="@+id/exPct1" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="" android:textColor="#22C55E" android:fontFamily="monospace" android:textSize="12sp" android:paddingStart="8dp" />
+    </LinearLayout>
+    <ImageView android:id="@+id/exSpark1" android:layout_width="match_parent" android:layout_height="48dp" android:scaleType="fitXY" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView android:id="@+id/exSym2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="ZEC" android:textColor="#FFFFFF" android:fontFamily="monospace" android:textSize="13sp" android:textStyle="bold" />
+        <TextView android:id="@+id/exPx2" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="" android:textColor="#FFFFFF" android:fontFamily="monospace" android:textSize="13sp" />
+        <TextView android:id="@+id/exPct2" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="" android:textColor="#22C55E" android:fontFamily="monospace" android:textSize="12sp" android:paddingStart="8dp" />
+    </LinearLayout>
+    <ImageView android:id="@+id/exSpark2" android:layout_width="match_parent" android:layout_height="48dp" android:scaleType="fitXY" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView android:id="@+id/exSym3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="BTC" android:textColor="#FFFFFF" android:fontFamily="monospace" android:textSize="13sp" android:textStyle="bold" />
+        <TextView android:id="@+id/exPx3" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="" android:textColor="#FFFFFF" android:fontFamily="monospace" android:textSize="13sp" />
+        <TextView android:id="@+id/exPct3" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="" android:textColor="#22C55E" android:fontFamily="monospace" android:textSize="12sp" android:paddingStart="8dp" />
+    </LinearLayout>
+    <TextView android:id="@+id/exWib"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="" android:textColor="#8B93A7" android:fontFamily="monospace" android:textSize="11sp" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingTop="6dp">
+        <Button android:id="@+id/btnOpen" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="Buka" />
+        <Button android:id="@+id/btnRefresh" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="Refresh" />
+    </LinearLayout>
+</LinearLayout>
