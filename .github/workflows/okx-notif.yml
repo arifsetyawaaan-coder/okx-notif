@@ -15,8 +15,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.10.2
-      - run: echo "LEN check:"
-echo "PASSLEN=${#KEYSTORE_PASS} ALIASLEN=${#KEY_ALIAS} B64LEN=${#KEYSTORE_B64}"
+      - run: |
+          echo "LEN check: PASSLEN=${#KEYSTORE_PASS} ALIASLEN=${#KEY_ALIAS} B64LEN=${#KEYSTORE_B64}"
         env:
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
