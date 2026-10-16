@@ -52,4 +52,29 @@ object OkxApi {
         if (open == 0.0) return null
         return (last - open) / open * 100
     }
+
+    /** 48 close 30m publik untuk BigPicture fallback tanpa VPS. */
+    fun spark30m(instId: String): List<Double>? {
+        val sym = instId.replace("-", "")
+        get("https://data-api.binance.vision/api/v3/klines?symbol=$sym&interval=30m&limit=48")?.let { body ->
+            val closes = Regex("\\[\\d+,\"[0-9.]+\",\"[0-9.]+\",\"[0-9.]+\",\"([0-9.]+)\"")
+                .findAll(body).mapNotNull { it.groupValues.get(1).toDoubleOrNull() }
+                .filter { it > 0 }.toList()
+            if (closes.size >= 2) return closes
+        }
+        get("https://www.okx.com/api/v5/market/candles?instId=$instId&bar=30m&limit=48")?.let { body ->
+            val closes = Regex("\"c\"\\s*:\\s*\"([0-9.]+)\"").findAll(body)
+                .mapNotNull { it.groupValues.get(1).toDoubleOrNull() }
+                .filter { it > 0 }.toList()
+            if (closes.size < 2) {
+                val rows = Regex("\\[\"[0-9.]+\",\"[0-9.]+\",\"[0-9.]+\",\"[0-9.]+\",\"([0-9.]+)\"")
+                    .findAll(body).mapNotNull { it.groupValues.get(1).toDoubleOrNull() }
+                    .filter { it > 0 }.toList()
+                if (rows.size >= 2) return rows.reversed()
+                return null
+            }
+            return closes.reversed()
+        }
+        return null
+    }
 }

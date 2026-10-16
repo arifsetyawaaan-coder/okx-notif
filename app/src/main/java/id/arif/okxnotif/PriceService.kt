@@ -111,7 +111,11 @@ class PriceService : Service() {
             val up = ((first?.pnlPct ?: first?.chg) ?: 0.0) >= 0
             return FetchResult(title, show.joinToString("\n") { coinLine(it) }, spark, up)
         }
-        return FetchResult(fetchLines().first, fetchLines().second, null, true)
+        val hype = OkxApi.last("HYPE-USDT")
+        val hChg = OkxApi.chg24("HYPE-USDT") ?: 0.0
+        val spark = OkxApi.spark30m("HYPE-USDT")
+        val base = fetchLines()
+        return FetchResult(base.first, base.second, spark, hChg >= 0)
     }
 
     private fun fetchLines(): Pair<String, String> {
