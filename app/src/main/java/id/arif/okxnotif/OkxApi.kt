@@ -41,4 +41,15 @@ object OkxApi {
         }
         return null
     }
+
+    /** Naik-turun 24 jam (%) dari ticker OKX (butuh open24h yang tidak ada di Binance). */
+    fun chg24(instId: String): Double? {
+        val body = get(OKX + instId) ?: return null
+        val last = Regex("\"last\"\\s*:\\s*\"([0-9.]+)\"").find(body)
+            ?.groupValues?.get(1)?.toDoubleOrNull() ?: return null
+        val open = Regex("\"open24h\"\\s*:\\s*\"([0-9.]+)\"").find(body)
+            ?.groupValues?.get(1)?.toDoubleOrNull() ?: return null
+        if (open == 0.0) return null
+        return (last - open) / open * 100
+    }
 }
