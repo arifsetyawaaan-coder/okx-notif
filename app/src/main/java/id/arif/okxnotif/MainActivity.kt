@@ -132,6 +132,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyDeepLink(intent)
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -142,6 +143,26 @@ class MainActivity : ComponentActivity() {
                 background = Bg, surface = Bg, primary = Green)) {
                 Screen()
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        applyDeepLink(intent)
+    }
+
+    private fun applyDeepLink(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme != "okxnotif" || uri.host != "config") return
+        val url = uri.getQueryParameter("url")?.trim().orEmpty()
+        val token = uri.getQueryParameter("token")?.trim().orEmpty()
+        val interval = uri.getQueryParameter("interval")?.trim().orEmpty()
+        if (url.isNotBlank() || token.isNotBlank()) {
+            Prefs.saveAdv(this,
+                url.ifBlank { Prefs.getUrl(this) },
+                token.ifBlank { Prefs.getToken(this) },
+                interval.ifBlank { Prefs.getIntervalSec(this).toString() })
         }
     }
 
