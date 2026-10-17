@@ -97,6 +97,14 @@ class PriceService : Service() {
         }
     }
 
+    /** Baris total di atas BTC: "Total PnL · ▲ +x.xx% · ±$x.xx". */
+    private fun totalLine(total: Double, pct: Double): String {
+        val arrow = if (pct < 0) "▼" else "▲"
+        val sign = if (total < 0) "-" else "+"
+        return "Total PnL · " + arrow + " " + "%+.2f".format(Locale.US, pct) + "%" +
+            " · " + sign + "$" + "%,.2f".format(Locale.US, kotlin.math.abs(total))
+    }
+
     private fun openPending(): PendingIntent {
         val root = webUrl()
         return if (root.isNotBlank()) {
@@ -130,15 +138,13 @@ class PriceService : Service() {
             val total = pos.mapNotNull { it.pnl }.sum()
             val cost = pos.map { (it.avg ?: 0.0) * (it.qty ?: 0.0) }.sum()
             val totPct = if (cost > 0) total / cost * 100 else 0.0
-            val title = "Total PnL " + (if (total < 0) "-" else "+") + "$" +
-                "%,.2f".format(Locale.US, kotlin.math.abs(total)) +
-                " (" + (if (totPct < 0) "-" else "+") +
-                "%.2f".format(Locale.US, kotlin.math.abs(totPct)) + "%)"
+            val totalRow = totalLine(total, totPct)
             val bArrow = if (data.btcChg >= 0) "▲" else "▼"
             val btcRow = "BTC $" + fmtPrice(data.btcPx) + " · " + bArrow + " " +
                 "%+.1f".format(Locale.US, data.btcChg) + "%"
             val show = data.coins.filter { it.px > 1 }.take(2)
-            return title to (listOf(btcRow) + show.map { coinLine(it) }).joinToString("\n")
+            val text = (listOf(totalRow, btcRow) + show.map { coinLine(it) }).joinToString("\n")
+            return "OKX Asset • Live Spot" to text
         }
         val hype = OkxApi.last("HYPE-USDT")
         val zec = OkxApi.last("ZEC-USDT")
@@ -154,10 +160,7 @@ class PriceService : Service() {
         val cost = (if (hPnl != null) hPos.avg * hPos.qty else 0.0) +
             (if (zPnl != null) zPos.avg * zPos.qty else 0.0)
         val totPct = if (cost > 0) total / cost * 100 else 0.0
-        val title = "Total PnL " + (if (total < 0) "-" else "+") + "$" +
-            "%,.2f".format(Locale.US, kotlin.math.abs(total)) +
-            " (" + (if (totPct < 0) "-" else "+") +
-            "%.2f".format(Locale.US, kotlin.math.abs(totPct)) + "%)"
+        val totalRow = totalLine(total, totPct)
         fun row(sym: String, last: Double?, chg: Double, pnl: Double?): String {
             val arrow = if (chg >= 0) "▲" else "▼"
             val left = if (last != null) sym + " $" + fmtPrice(last) else sym + " -"
@@ -171,8 +174,9 @@ class PriceService : Service() {
         val bArrow = if (btcChg >= 0) "▲" else "▼"
         val bRow = if (btc != null) "BTC $" + fmtPrice(btc) + " · " + bArrow + " " +
             "%+.1f".format(Locale.US, btcChg) + "%" else "BTC -"
-        val text = listOf(bRow, row("HYPE", hype, hChg, hPnl), row("ZEC", zec, zChg, zPnl)).joinToString("\n")
-        return title to text
+        val text = listOf(totalRow, bRow, row("HYPE", hype, hChg, hPnl), row("ZEC", zec, zChg, zPnl))
+            .joinToString("\n")
+        return "OKX Asset • Live Spot" to text
     }
 
     private data class FetchResult(

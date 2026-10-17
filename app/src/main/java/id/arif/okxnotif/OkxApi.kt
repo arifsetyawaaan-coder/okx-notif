@@ -7,6 +7,7 @@ import java.net.URL
 /** Harga spot publik — Binance Vision dulu (lolos blokir ISP ID), OKX sebagai cadangan. */
 object OkxApi {
     private const val BINANCE = "https://data-api.binance.vision/api/v3/ticker/price?symbol="
+    private const val BINANCE24 = "https://data-api.binance.vision/api/v3/ticker/24hr?symbol="
     private const val OKX = "https://www.okx.com/api/v5/market/ticker?instId="
 
     private fun get(url: String): String? {
@@ -42,8 +43,14 @@ object OkxApi {
         return null
     }
 
-    /** Naik-turun 24 jam (%) dari ticker OKX (butuh open24h yang tidak ada di Binance). */
+    /** Naik-turun 24 jam (%): Binance Vision dulu (lolos blokir ISP ID), OKX cadangan. */
     fun chg24(instId: String): Double? {
+        val sym = instId.replace("-", "")
+        get(BINANCE24 + sym)?.let { body ->
+            val m = Regex("\"priceChangePercent\"\\s*:\\s*\"([-0-9.]+)\"").find(body)
+            val v = m?.groupValues?.get(1)?.toDoubleOrNull()
+            if (v != null) return v
+        }
         val body = get(OKX + instId) ?: return null
         val last = Regex("\"last\"\\s*:\\s*\"([0-9.]+)\"").find(body)
             ?.groupValues?.get(1)?.toDoubleOrNull() ?: return null
