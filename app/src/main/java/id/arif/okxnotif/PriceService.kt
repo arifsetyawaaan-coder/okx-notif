@@ -126,9 +126,14 @@ class PriceService : Service() {
         // Utama: JSON VPS (angka SAMA dengan Telegram/monitor). Cadangan: ticker langsung.
         val data = ScreenApi.load(Prefs.getUrl(this), Prefs.getToken(this))
         if (data != null && data.coins.isNotEmpty()) {
-            val total = data.coins.mapNotNull { it.pnl }.sum()
+            val pos = data.coins.filter { it.pnl != null }
+            val total = pos.mapNotNull { it.pnl }.sum()
+            val cost = pos.map { (it.avg ?: 0.0) * (it.qty ?: 0.0) }.sum()
+            val totPct = if (cost > 0) total / cost * 100 else 0.0
             val title = "Total PnL " + (if (total < 0) "-" else "+") + "$" +
-                "%,.2f".format(Locale.US, kotlin.math.abs(total))
+                "%,.2f".format(Locale.US, kotlin.math.abs(total)) +
+                " (" + (if (totPct < 0) "-" else "+") +
+                "%.2f".format(Locale.US, kotlin.math.abs(totPct)) + "%)"
             val bArrow = if (data.btcChg >= 0) "▲" else "▼"
             val btcRow = "BTC $" + fmtPrice(data.btcPx) + " · " + bArrow + " " +
                 "%+.1f".format(Locale.US, data.btcChg) + "%"
@@ -141,11 +146,18 @@ class PriceService : Service() {
         val btcChg = OkxApi.chg24("BTC-USDT") ?: 0.0
         val hChg = OkxApi.chg24("HYPE-USDT") ?: 0.0
         val zChg = OkxApi.chg24("ZEC-USDT") ?: 0.0
-        val hPnl = if (hype != null) (hype - Prefs.getHype(this).avg) * Prefs.getHype(this).qty else null
-        val zPnl = if (zec != null) (zec - Prefs.getZec(this).avg) * Prefs.getZec(this).qty else null
+        val hPos = Prefs.getHype(this)
+        val zPos = Prefs.getZec(this)
+        val hPnl = if (hype != null) (hype - hPos.avg) * hPos.qty else null
+        val zPnl = if (zec != null) (zec - zPos.avg) * zPos.qty else null
         val total = listOfNotNull(hPnl, zPnl).sum()
+        val cost = (if (hPnl != null) hPos.avg * hPos.qty else 0.0) +
+            (if (zPnl != null) zPos.avg * zPos.qty else 0.0)
+        val totPct = if (cost > 0) total / cost * 100 else 0.0
         val title = "Total PnL " + (if (total < 0) "-" else "+") + "$" +
-            "%,.2f".format(Locale.US, kotlin.math.abs(total))
+            "%,.2f".format(Locale.US, kotlin.math.abs(total)) +
+            " (" + (if (totPct < 0) "-" else "+") +
+            "%.2f".format(Locale.US, kotlin.math.abs(totPct)) + "%)"
         fun row(sym: String, last: Double?, chg: Double, pnl: Double?): String {
             val arrow = if (chg >= 0) "▲" else "▼"
             val left = if (last != null) sym + " $" + fmtPrice(last) else sym + " -"
