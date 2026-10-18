@@ -151,7 +151,8 @@ class PriceService : Service() {
         // Cadangan: OKX WebSocket publik — hanya jalur OKX (bukan sumber lain).
         val snap = OkxWs.snapshot(listOf("BTC-USDT", "HYPE-USDT", "ZEC-USDT"))
         if (snap == null) {
-            return "OKX Asset • Live Spot" to "Menunggu data OKX — VPS & WS tak terjangkau"
+            val why = ScreenApi.lastError.ifBlank { "VPS & WS tak terjangkau" }
+            return "OKX Asset • Live Spot" to "Menunggu data OKX · " + why
         }
         val btc = snap["BTC-USDT"]
         val hype = snap["HYPE-USDT"]
