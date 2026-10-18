@@ -4,7 +4,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** Satu baris data dari screening.json VPS (display murni, tanpa hitung). */
+/** Satu baris data dari notif.json VPS (sumber ringan; VPS refresh via OKX CLI saat app minta). */
 data class CoinUi(
     val sym: String,
     val px: Double,
@@ -34,7 +34,8 @@ object ScreenApi {
         return try {
             var root = baseUrl.trim().trimEnd('/')
             if (root.endsWith("/screening.json")) root = root.removeSuffix("/screening.json")
-            val url = "$root/screening.json"
+            if (root.endsWith("/notif.json")) root = root.removeSuffix("/notif.json")
+            val url = "$root/notif.json"
             conn = (URL(url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 20000
                 readTimeout = 20000

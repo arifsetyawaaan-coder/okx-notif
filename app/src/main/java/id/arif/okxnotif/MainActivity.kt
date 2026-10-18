@@ -128,7 +128,7 @@ class MainActivity : ComponentActivity() {
                 cek = "Gagal — URL belum diisi"
                 return
             }
-            val base = u.substringBefore("/screening.json").trimEnd('/')
+            val base = u.substringBefore("/screening.json").substringBefore("/notif.json").trimEnd('/')
             try {
                 ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(base)))
             } catch (_: Exception) {

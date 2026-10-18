@@ -140,7 +140,7 @@ class PriceService : Service() {
             .build()
     }
     private fun fetchLines(): Pair<String, String> {
-        // Utama: JSON VPS (angka SAMA dengan Telegram/monitor). Cadangan: OKX WebSocket publik.
+        // Utama: notif.json VPS (ringan; VPS refresh via OKX CLI tiap app minta). Cadangan: OKX WebSocket publik.
         val data = ScreenApi.load(Prefs.getUrl(this), Prefs.getToken(this))
         if (data != null && data.coins.isNotEmpty()) {
             val pos = data.coins.filter { it.pnl != null }
@@ -241,7 +241,7 @@ class PriceService : Service() {
 
     private fun webUrl(): String {
         val root = Prefs.getUrl(this).trim().trimEnd('/')
-            .removeSuffix("/screening.json").trimEnd('/')
+            .removeSuffix("/screening.json").removeSuffix("/notif.json").trimEnd('/')
         return root
     }
 
