@@ -124,7 +124,7 @@ class PriceService : Service() {
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(id.arif.okxnotif.R.drawable.ic_stat_chart)
             .setContentTitle(title)
-            .setContentText(text.replace("\n", " · "))
+            .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(openPending())
             .setOngoing(true)
@@ -143,7 +143,7 @@ class PriceService : Service() {
             val totalRow = totalLine(total, totPct)
             val bArrow = if (data.btcChg >= 0) "▲" else "▼"
             val btcRow = "BTC $" + fmtPrice(data.btcPx) + " · " + bArrow + " " +
-                "%+.1f".format(Locale.US, data.btcChg) + "%"
+                "%+.2f".format(Locale.US, data.btcChg) + "%"
             val show = data.coins.filter { it.px > 1 }.take(2)
             val text = (listOf(totalRow, btcRow) + show.map { coinLine(it) }).joinToString("\n")
             return "OKX Asset • Live Spot" to text
@@ -179,7 +179,7 @@ class PriceService : Service() {
         val bRow = if (btc != null) {
             val chg = (btc.last - btc.open24h) / btc.open24h * 100
             "BTC $" + fmtPrice(btc.last) + " · " + (if (chg >= 0) "▲" else "▼") + " " +
-                "%+.1f".format(Locale.US, chg) + "%"
+                "%+.2f".format(Locale.US, chg) + "%"
         } else {
             "BTC —"
         }

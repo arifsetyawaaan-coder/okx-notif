@@ -260,7 +260,7 @@ class MainActivity : ComponentActivity() {
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Text("BTC", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
                                             Text(
-                                                "${if (d.btcChg >= 0) "▲" else "▼"} ${"%+.1f".format(Locale.US, d.btcChg)}%",
+                                                "${if (d.btcChg >= 0) "▲" else "▼"} ${"%+.2f".format(Locale.US, d.btcChg)}%",
                                                 color = if (d.btcChg >= 0) Green else Red, fontSize = 13.sp,
                                                 fontFamily = FontFamily.Monospace)
                                         }
