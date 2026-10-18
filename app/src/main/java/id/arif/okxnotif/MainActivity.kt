@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
@@ -48,7 +47,7 @@ import java.util.Locale
 
 private val Green = Color(0xFF26A69A)
 private val Red = Color(0xFFEF5350)
-private val Bg = Color(0xFF0A0E14)
+private val Bg = Color(0xFF141A24)
 private val CardBg = Color(0xFF141A24)
 private val Muted = Color(0xFF8B93A7)
 
@@ -145,11 +144,6 @@ class MainActivity : ComponentActivity() {
         }
 
         Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth().padding(12.dp, 12.dp, 12.dp, 0.dp),
-                horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("OKX Pulse", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Color.White)
-            }
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {

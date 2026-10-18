@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema app: seluruh latar seragam dengan warna komponen (#141A24). -->
+    <style name="Theme.OkxNotif" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#141A24</item>
+        <item name="android:statusBarColor">#141A24</item>
+        <item name="android:navigationBarColor">#141A24</item>
+    </style>
+</resources>

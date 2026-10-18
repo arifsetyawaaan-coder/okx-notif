@@ -124,7 +124,7 @@ class PriceService : Service() {
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(id.arif.okxnotif.R.drawable.ic_stat_chart)
             .setContentTitle(title)
-            .setContentText(text)
+            .setContentText(text.substringBefore("\n"))
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(openPending())
             .setOngoing(true)
