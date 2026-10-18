@@ -31,7 +31,7 @@ class PriceService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIF_ID, build("Menyiapkan…", "Mengambil harga OKX…"))
+        startForeground(NOTIF_ID, build(titleNow(), "Mengambil harga OKX…"))
         job?.cancel()
         job = CoroutineScope(Dispatchers.IO).launch {
             while (isActive) {
@@ -64,6 +64,13 @@ class PriceService : Service() {
         x >= 100 -> "%.2f".format(Locale.US, x)
         x >= 1 -> "%.4f".format(Locale.US, x).trimEnd('0').trimEnd('.')
         else -> "%.6f".format(Locale.US, x).trimEnd('0').trimEnd('.')
+    }
+
+    /** Judul notif: "OKX Asset • HH:mm:ss WIB" — waktu update terakhir (jam perangkat, zona WIB). */
+    private fun titleNow(): String {
+        val f = java.text.SimpleDateFormat("HH:mm:ss", Locale.US)
+        f.timeZone = java.util.TimeZone.getTimeZone("Asia/Jakarta")
+        return "OKX Asset • " + f.format(java.util.Date()) + " WIB"
     }
 
     private fun line(sym: String, last: Double?, pos: Position): String {
@@ -146,13 +153,13 @@ class PriceService : Service() {
                 "%+.2f".format(Locale.US, data.btcChg) + "%"
             val show = data.coins.filter { it.px > 1 }.take(2)
             val text = (listOf(totalRow, btcRow) + show.map { coinLine(it) }).joinToString("\n")
-            return "OKX Asset • Live Spot" to text
+            return titleNow() to text
         }
         // Cadangan: OKX WebSocket publik — hanya jalur OKX (bukan sumber lain).
         val snap = OkxWs.snapshot(listOf("BTC-USDT", "HYPE-USDT", "ZEC-USDT"))
         if (snap == null) {
             val why = ScreenApi.lastError.ifBlank { "VPS & WS tak terjangkau" }
-            return "OKX Asset • Live Spot" to "Menunggu data OKX · " + why
+            return titleNow() to "Menunggu data OKX · " + why
         }
         val btc = snap["BTC-USDT"]
         val hype = snap["HYPE-USDT"]
@@ -185,7 +192,7 @@ class PriceService : Service() {
         }
         val text = listOf(totalRow, bRow, posRow("HYPE", hype, hPos), posRow("ZEC", zec, zPos))
             .joinToString("\n")
-        return "OKX Asset • Live Spot" to text
+        return titleNow() to text
     }
 
     private data class FetchResult(
