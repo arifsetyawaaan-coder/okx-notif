@@ -84,17 +84,19 @@ class PriceService : Service() {
         else -> "Sideway"
     }
 
+    /** Baris koin: aset aktif tampilkan persen PnL; tanpa posisi tampilkan chg24. */
     private fun coinLine(c: CoinUi): String {
-        val arrow = if (c.chg >= 0) "▲" else "▼"
         val left = c.sym + " $" + fmtPrice(c.px)
-        val mid = arrow + " " + "%+.1f".format(Locale.US, c.chg) + "%"
-        return if (c.pnl != null) {
-            val sign = if (c.pnl < 0) "-" else "+"
-            left + " · " + mid + " · " + sign + "$" +
-                "%,.2f".format(Locale.US, kotlin.math.abs(c.pnl))
-        } else {
-            left + " · " + mid
+        val pnl = c.pnl
+        val pct = c.pnlPct
+        if (pnl != null && pct != null) {
+            val arrow = if (pnl < 0) "▼" else "▲"
+            val sign = if (pnl < 0) "-" else "+"
+            return left + " · " + arrow + " " + "%+.2f".format(Locale.US, pct) + "%" +
+                " · " + sign + "$" + "%,.2f".format(Locale.US, kotlin.math.abs(pnl))
         }
+        val arrow = if (c.chg >= 0) "▲" else "▼"
+        return left + " · " + arrow + " " + "%+.1f".format(Locale.US, c.chg) + "%"
     }
 
     /** Baris total di atas BTC: "Total PnL · ▲ +x.xx% · ±$x.xx". */
@@ -131,7 +133,7 @@ class PriceService : Service() {
             .build()
     }
     private fun fetchLines(): Pair<String, String> {
-        // Utama: JSON VPS (angka SAMA dengan Telegram/monitor). Cadangan: ticker langsung.
+        // Utama: JSON VPS (angka SAMA dengan Telegram/monitor). Cadangan: OKX WebSocket publik.
         val data = ScreenApi.load(Prefs.getUrl(this), Prefs.getToken(this))
         if (data != null && data.coins.isNotEmpty()) {
             val pos = data.coins.filter { it.pnl != null }
@@ -146,35 +148,41 @@ class PriceService : Service() {
             val text = (listOf(totalRow, btcRow) + show.map { coinLine(it) }).joinToString("\n")
             return "OKX Asset • Live Spot" to text
         }
-        val hype = OkxApi.last("HYPE-USDT")
-        val zec = OkxApi.last("ZEC-USDT")
-        val btc = OkxApi.last("BTC-USDT")
-        val btcChg = OkxApi.chg24("BTC-USDT") ?: 0.0
-        val hChg = OkxApi.chg24("HYPE-USDT") ?: 0.0
-        val zChg = OkxApi.chg24("ZEC-USDT") ?: 0.0
+        // Cadangan: OKX WebSocket publik — hanya jalur OKX (bukan sumber lain).
+        val snap = OkxWs.snapshot(listOf("BTC-USDT", "HYPE-USDT", "ZEC-USDT"))
+        if (snap == null) {
+            return "OKX Asset • Live Spot" to "Menunggu data OKX — VPS & WS tak terjangkau"
+        }
+        val btc = snap["BTC-USDT"]
+        val hype = snap["HYPE-USDT"]
+        val zec = snap["ZEC-USDT"]
         val hPos = Prefs.getHype(this)
         val zPos = Prefs.getZec(this)
-        val hPnl = if (hype != null) (hype - hPos.avg) * hPos.qty else null
-        val zPnl = if (zec != null) (zec - zPos.avg) * zPos.qty else null
+        val hPnl = hype?.let { (it.last - hPos.avg) * hPos.qty }
+        val zPnl = zec?.let { (it.last - zPos.avg) * zPos.qty }
         val total = listOfNotNull(hPnl, zPnl).sum()
         val cost = (if (hPnl != null) hPos.avg * hPos.qty else 0.0) +
             (if (zPnl != null) zPos.avg * zPos.qty else 0.0)
         val totPct = if (cost > 0) total / cost * 100 else 0.0
         val totalRow = totalLine(total, totPct)
-        fun row(sym: String, last: Double?, chg: Double, pnl: Double?): String {
-            val arrow = if (chg >= 0) "▲" else "▼"
-            val left = if (last != null) sym + " $" + fmtPrice(last) else sym + " -"
-            val mid = arrow + " " + "%+.1f".format(Locale.US, chg) + "%"
-            return if (pnl != null) {
-                val sign = if (pnl < 0) "-" else "+"
-                left + " · " + mid + " · " + sign + "$" +
-                    "%,.2f".format(Locale.US, kotlin.math.abs(pnl))
-            } else left + " · " + mid
+        fun posRow(sym: String, t: OkxWs.Tick?, pos: Position): String {
+            if (t == null) return sym + " —"
+            val pnl = (t.last - pos.avg) * pos.qty
+            val pct = if (pos.avg > 0) (t.last - pos.avg) / pos.avg * 100 else 0.0
+            val arrow = if (pnl < 0) "▼" else "▲"
+            val sign = if (pnl < 0) "-" else "+"
+            return sym + " $" + fmtPrice(t.last) + " · " + arrow + " " +
+                "%+.2f".format(Locale.US, pct) + "%" + " · " + sign + "$" +
+                "%,.2f".format(Locale.US, kotlin.math.abs(pnl))
         }
-        val bArrow = if (btcChg >= 0) "▲" else "▼"
-        val bRow = if (btc != null) "BTC $" + fmtPrice(btc) + " · " + bArrow + " " +
-            "%+.1f".format(Locale.US, btcChg) + "%" else "BTC -"
-        val text = listOf(totalRow, bRow, row("HYPE", hype, hChg, hPnl), row("ZEC", zec, zChg, zPnl))
+        val bRow = if (btc != null) {
+            val chg = (btc.last - btc.open24h) / btc.open24h * 100
+            "BTC $" + fmtPrice(btc.last) + " · " + (if (chg >= 0) "▲" else "▼") + " " +
+                "%+.1f".format(Locale.US, chg) + "%"
+        } else {
+            "BTC —"
+        }
+        val text = listOf(totalRow, bRow, posRow("HYPE", hype, hPos), posRow("ZEC", zec, zPos))
             .joinToString("\n")
         return "OKX Asset • Live Spot" to text
     }
