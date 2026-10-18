@@ -130,7 +130,7 @@ class MainActivity : ComponentActivity() {
             }
             val base = u.substringBefore("/screening.json").substringBefore("/notif.json").trimEnd('/')
             try {
-                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(base)))
+                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$base?refresh=1")))
             } catch (_: Exception) {
                 cek = "Tidak bisa membuka browser"
             }

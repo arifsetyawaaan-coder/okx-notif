@@ -118,7 +118,7 @@ class PriceService : Service() {
         val root = webUrl()
         return if (root.isNotBlank()) {
             PendingIntent.getActivity(
-                this, 0, Intent(Intent.ACTION_VIEW, android.net.Uri.parse("$root/")),
+                this, 0, Intent(Intent.ACTION_VIEW, android.net.Uri.parse("$root/?refresh=1")),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         } else {
             PendingIntent.getActivity(
@@ -249,7 +249,7 @@ class PriceService : Service() {
         val root = webUrl()
         val open = if (root.isNotBlank()) {
             PendingIntent.getActivity(
-                this, 0, Intent(Intent.ACTION_VIEW, android.net.Uri.parse("$root/")),
+                this, 0, Intent(Intent.ACTION_VIEW, android.net.Uri.parse("$root/?refresh=1")),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         } else {
             PendingIntent.getActivity(
