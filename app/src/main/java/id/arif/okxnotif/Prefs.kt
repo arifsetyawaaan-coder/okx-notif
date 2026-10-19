@@ -25,6 +25,20 @@ object Prefs {
     fun getToken(ctx: Context): String = prefs(ctx).getString("api_token", "") ?: ""
     fun isRunning(ctx: Context): Boolean = prefs(ctx).getBoolean("running", false)
 
+    /** Cache koin terakhir dari VPS (sym,avg,qty) untuk fallback WS. */
+    fun saveCachedCoins(ctx: Context, coins: List<Triple<String, Double, Double>>) {
+        prefs(ctx).edit().putString("cached_coins",
+            coins.joinToString(";") { "${it.first},${it.second},${it.third}" }).apply()
+    }
+    fun getCachedCoins(ctx: Context): List<Triple<String, Double, Double>> =
+        (prefs(ctx).getString("cached_coins", "") ?: "").split(";").mapNotNull {
+            val p = it.split(",")
+            if (p.size == 3) {
+                val q = p[1].toDoubleOrNull(); val w = p[2].toDoubleOrNull()
+                if (q != null && w != null) Triple(p[0], q, w) else null
+            } else null
+        }
+
     fun saveAdv(ctx: Context, url: String, token: String, interval: String) {
         prefs(ctx).edit().putString("api_url", url.trim()).putString("api_token", token.trim())
             .putString("interval", interval).apply()

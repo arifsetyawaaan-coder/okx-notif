@@ -143,6 +143,9 @@ class PriceService : Service() {
         // Utama: notif.json VPS (ringan; VPS refresh via OKX CLI tiap app minta). Cadangan: OKX WebSocket publik.
         val data = ScreenApi.load(Prefs.getUrl(this), Prefs.getToken(this))
         if (data != null && data.coins.isNotEmpty()) {
+            Prefs.saveCachedCoins(this, data.coins.mapNotNull {
+                if (it.avg != null && it.qty != null) Triple(it.sym, it.avg, it.qty) else null
+            })
             val pos = data.coins.filter { it.pnl != null }
             val total = pos.mapNotNull { it.pnl }.sum()
             val cost = pos.map { (it.avg ?: 0.0) * (it.qty ?: 0.0) }.sum()
@@ -151,28 +154,19 @@ class PriceService : Service() {
             val bArrow = if (data.btcChg >= 0) "▲" else "▼"
             val btcRow = "BTC $" + fmtPrice(data.btcPx) + " · " + bArrow + " " +
                 "%+.2f".format(Locale.US, data.btcChg) + "%"
-            val show = data.coins.filter { it.px > 1 }.take(2)
+            val show = data.coins.filter { it.px > 1 }
             val text = (listOf(totalRow, btcRow) + show.map { coinLine(it) }).joinToString("\n")
             return titleNow() to text
         }
-        // Cadangan: OKX WebSocket publik — hanya jalur OKX (bukan sumber lain).
-        val snap = OkxWs.snapshot(listOf("BTC-USDT", "HYPE-USDT", "ZEC-USDT"))
+        // Cadangan: OKX WebSocket publik + cache koin terakhir — hanya jalur OKX.
+        val cached = Prefs.getCachedCoins(this)
+        val syms = (listOf("BTC") + cached.map { it.first }).distinct()
+        val snap = OkxWs.snapshot(syms.map { "$it-USDT" })
         if (snap == null) {
             val why = ScreenApi.lastError.ifBlank { "VPS & WS tak terjangkau" }
             return titleNow() to "Menunggu data OKX · " + why
         }
         val btc = snap["BTC-USDT"]
-        val hype = snap["HYPE-USDT"]
-        val zec = snap["ZEC-USDT"]
-        val hPos = Prefs.getHype(this)
-        val zPos = Prefs.getZec(this)
-        val hPnl = hype?.let { (it.last - hPos.avg) * hPos.qty }
-        val zPnl = zec?.let { (it.last - zPos.avg) * zPos.qty }
-        val total = listOfNotNull(hPnl, zPnl).sum()
-        val cost = (if (hPnl != null) hPos.avg * hPos.qty else 0.0) +
-            (if (zPnl != null) zPos.avg * zPos.qty else 0.0)
-        val totPct = if (cost > 0) total / cost * 100 else 0.0
-        val totalRow = totalLine(total, totPct)
         fun posRow(sym: String, t: OkxWs.Tick?, pos: Position): String {
             if (t == null) return sym + " —"
             val pnl = (t.last - pos.avg) * pos.qty
@@ -183,6 +177,14 @@ class PriceService : Service() {
                 "%+.2f".format(Locale.US, pct) + "%" + " · " + sign + "$" +
                 "%,.2f".format(Locale.US, kotlin.math.abs(pnl))
         }
+        val rows = cached.map { (sym, avg, qty) -> posRow(sym, snap["$sym-USDT"], Position(avg, qty)) }
+        val pnls = cached.mapNotNull { (sym, avg, qty) ->
+            snap["$sym-USDT"]?.let { (it.last - avg) * qty }
+        }
+        val total = pnls.sum()
+        val cost = cached.sumOf { it.second * it.third }
+        val totPct = if (cost > 0) total / cost * 100 else 0.0
+        val totalRow = totalLine(total, totPct)
         val bRow = if (btc != null) {
             val chg = (btc.last - btc.open24h) / btc.open24h * 100
             "BTC $" + fmtPrice(btc.last) + " · " + (if (chg >= 0) "▲" else "▼") + " " +
@@ -190,8 +192,7 @@ class PriceService : Service() {
         } else {
             "BTC —"
         }
-        val text = listOf(totalRow, bRow, posRow("HYPE", hype, hPos), posRow("ZEC", zec, zPos))
-            .joinToString("\n")
+        val text = (listOf(totalRow, bRow) + rows).joinToString("\n")
         return titleNow() to text
     }
 

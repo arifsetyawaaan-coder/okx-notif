@@ -3,11 +3,12 @@
 Notifikasi ongoing di HP seperti gambar: harga + PnL HYPE dan ZEC, refresh tiap menit.
 
 ## Cara kerja
-- `PriceService` (foreground service) ambil harga dari REST publik OKX
-  (`/api/v5/market/ticker`, tanpa API key) tiap N detik, tampilkan di 1
-  notifikasi ongoing (BigTextStyle, tidak bisa di-swipe).
-- PnL = (harga − avg) × qty. Avg/qty default dari posisi VPS Okt 2026
-  (HYPE 87.208 × 0.6302, ZEC 1405.53 × 0.03555) — ubah di layar utama.
+- `PriceService` (foreground service) ambil data dari `notif.json` VPS
+  (Bearer token) tiap N detik, tampilkan di 1 notifikasi ongoing
+  (BigTextStyle, tidak bisa di-swipe). Daftar koin DINAMIS ikut VPS:
+  non-USDT bernilai > $1 + TP live (sama seperti dashboard).
+- PnL = (harga − avg) × qty, avg/qty ikut dari VPS. Cadangan bila VPS
+  tak terjangkau: WebSocket publik OKX + cache koin terakhir.
 - `BootReceiver` menyalakan lagi setelah HP restart.
 
 ## Build APK (HP tidak perlu SDK)
