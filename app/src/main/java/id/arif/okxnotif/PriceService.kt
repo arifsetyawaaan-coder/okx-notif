@@ -154,7 +154,7 @@ class PriceService : Service() {
             val bArrow = if (data.btcChg >= 0) "▲" else "▼"
             val btcRow = "BTC $" + fmtPrice(data.btcPx) + " · " + bArrow + " " +
                 "%+.2f".format(Locale.US, data.btcChg) + "%"
-            val show = data.coins.filter { it.px > 1 }
+            val show = data.coins.filter { it.px > 0 }
             val text = (listOf(totalRow, btcRow) + show.map { coinLine(it) }).joinToString("\n")
             return titleNow() to text
         }
