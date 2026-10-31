@@ -19,7 +19,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /** Widget watchlist ala OKX: 9 koin + sparkline + chg, data publik OKX (tanpa auth). */
-class WatchlistWidget : AppWidgetProvider {
+class WatchlistWidget : AppWidgetProvider() {
 
     companion object {
         val COINS = listOf("BTC", "HYPE", "NEAR", "PUMP", "ARB", "ASTER", "UNI", "JTO", "SOL")
