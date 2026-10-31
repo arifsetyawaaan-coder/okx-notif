@@ -40,9 +40,9 @@
             </intent-filter>
         </receiver>
         <receiver
-            android:name=".SpotWidget"
+            android:name=".WatchlistWidget"
             android:exported="false"
-            android:label="OKX Spot">
+            android:label="OKX Watchlist">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
