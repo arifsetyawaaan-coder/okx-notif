@@ -30,7 +30,8 @@ class WatchlistWidget : AppWidgetProvider() {
 
         data class Row(val sym: String, val px: Double, val chg: Double, val spark: List<Double>)
 
-        fun fetch(sym: String): Row? {
+        fun fetch(sym: String, vps: Map<String, Row>? = null): Row? {
+            vps?.get(sym)?.let { return it }
             return try {
                 val t = get("https://www.okx.com/api/v5/market/ticker?instId=$sym-USDT")
                     .getJSONArray("data").getJSONObject(0)
@@ -115,7 +116,21 @@ class WatchlistWidget : AppWidgetProvider() {
             mgr.updateAppWidget(id, v)
         }
         CoroutineScope(Dispatchers.IO).launch {
-            val rows = COINS.mapNotNull { fetch(it) }
+            var err = ""
+            // Jalur 1: VPS (punya spark + auth milik sendiri)
+            var vps: Map<String, Row>? = null
+            try {
+                val sd = ScreenApi.load(Prefs.getUrl(ctx), Prefs.getToken(ctx))
+                if (sd != null) {
+                    val m = mutableMapOf("BTC" to Row("BTC", sd.btcPx, sd.btcChg, emptyList()))
+                    sd.coins.forEach { m[it.sym] = Row(it.sym, it.px, it.chg, it.spark) }
+                    vps = m
+                } else err = ScreenApi.lastError
+            } catch (e: Exception) { err = e.message ?: "vps?" }
+            // Jalur 2: publik OKX per koin (tanpa auth)
+            val rows = COINS.mapNotNull {
+                try { fetch(it, vps) } catch (e: Exception) { err = e.message ?: "net?"; null }
+            }
             CoroutineScope(Dispatchers.Main).launch {
                 val m = AppWidgetManager.getInstance(ctx)
                 for (id in ids) {
@@ -123,7 +138,7 @@ class WatchlistWidget : AppWidgetProvider() {
                     v.removeAllViews(R.id.widget_list)
                     if (rows.isEmpty()) {
                         val e = RemoteViews(ctx.packageName, R.layout.widget_row)
-                        e.setTextViewText(R.id.row_sym, "⚠️ gagal muat — cek internet")
+                        e.setTextViewText(R.id.row_sym, "⚠️ $err")
                         v.addView(R.id.widget_list, e)
                     } else for (r in rows) {
                         val row = RemoteViews(ctx.packageName, R.layout.widget_row)
